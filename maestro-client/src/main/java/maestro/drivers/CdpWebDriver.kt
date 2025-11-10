@@ -63,6 +63,7 @@ class CdpWebDriver(
     private var maestroWebScript: String? = null
     private var lastSeenWindowHandles = setOf<String>()
     private var injectedArguments: Map<String, Any> = emptyMap()
+    private var identifierConfig: Map<String, String>? = null
 
     private var webScreenRecorder: WebScreenRecorder? = null
 
@@ -191,6 +192,14 @@ class CdpWebDriver(
 
                     cdpClient.evaluate("$maestroWebScript", target)
 
+                    // Inject identifier config into browser
+                    identifierConfig?.let { config ->
+                        val configJson = config.entries.joinToString(",") { (k, v) ->
+                            "\"$k\":\"$v\""
+                        }
+                        cdpClient.evaluate("window.maestro.identifierConfig = {$configJson}", target)
+                    }
+
                     injectedArguments.forEach { (key, value) ->
                         cdpClient.evaluate("$key = '$value'", target)
                     }
@@ -280,6 +289,10 @@ class CdpWebDriver(
         )
     }
 
+    fun setIdentifierConfig(config: Map<String, String>) {
+        this.identifierConfig = config
+    }
+
     override fun launchApp(
         appId: String,
         launchArguments: Map<String, Any>,
@@ -345,6 +358,8 @@ class CdpWebDriver(
             "text" to attrs["text"] as String,
             "bounds" to bounds,
         )
+        
+        // Add known optional attributes
         if (attrs.containsKey("resource-id") && attrs["resource-id"] != null) {
             attributes["resource-id"] = attrs["resource-id"] as String
         }
@@ -356,6 +371,18 @@ class CdpWebDriver(
         }
         if (attrs.containsKey("ignoreBoundsFiltering") && attrs["ignoreBoundsFiltering"] != null) {
             attributes["ignoreBoundsFiltering"] = (attrs["ignoreBoundsFiltering"] as Boolean).toString()
+        }
+        
+        // Dynamically copy any additional custom identifier attributes
+        attrs.forEach { (key, value) ->
+            // Skip if already processed above
+            if (!attributes.containsKey(key)) {
+                when (value) {
+                    is String -> attributes[key] = value
+                    is Boolean -> attributes[key] = value.toString()
+                    is Number -> attributes[key] = value.toString()
+                }
+            }
         }
 
         val children = domRepresentation["children"] as List<Map<String, Any>>

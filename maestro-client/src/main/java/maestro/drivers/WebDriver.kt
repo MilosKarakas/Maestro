@@ -54,6 +54,7 @@ class WebDriver(
     private var maestroWebScript: String? = null
     private var lastSeenWindowHandles = setOf<String>()
     private var injectedArguments: Map<String, Any> = emptyMap()
+    private var identifierConfig: Map<String, String>? = null
 
     private var webScreenRecorder: WebScreenRecorder? = null
 
@@ -99,6 +100,14 @@ class WebDriver(
 
         try {
             executor.executeScript("$maestroWebScript")
+
+            // Inject identifier config into browser
+            identifierConfig?.let { config ->
+                val configJson = config.entries.joinToString(",") { (k, v) -> 
+                    "\"$k\":\"$v\"" 
+                }
+                executor.executeScript("window.maestro.identifierConfig = {$configJson}")
+            }
 
             injectedArguments.forEach { (key, value) ->
                 executor.executeScript("$key = '$value'")
@@ -197,6 +206,10 @@ class WebDriver(
         )
     }
 
+    fun setIdentifierConfig(config: Map<String, String>) {
+        this.identifierConfig = config
+    }
+
     override fun launchApp(
         appId: String,
         launchArguments: Map<String, Any>,
@@ -265,6 +278,8 @@ class WebDriver(
             "text" to attrs["text"] as String,
             "bounds" to bounds,
         )
+        
+        // Add known optional attributes
         if (attrs.containsKey("resource-id") && attrs["resource-id"] != null) {
             attributes["resource-id"] = attrs["resource-id"] as String
         }
@@ -276,6 +291,18 @@ class WebDriver(
         }
         if (attrs.containsKey("ignoreBoundsFiltering") && attrs["ignoreBoundsFiltering"] != null) {
             attributes["ignoreBoundsFiltering"] = (attrs["ignoreBoundsFiltering"] as Boolean).toString()
+        }
+        
+        // Dynamically copy any additional custom identifier attributes
+        attrs.forEach { (key, value) ->
+            // Skip if already processed above
+            if (!attributes.containsKey(key)) {
+                when (value) {
+                    is String -> attributes[key] = value
+                    is Boolean -> attributes[key] = value.toString()
+                    is Number -> attributes[key] = value.toString()
+                }
+            }
         }
 
         val children = domRepresentation["children"] as List<Map<String, Any>>

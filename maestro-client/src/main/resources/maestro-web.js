@@ -135,6 +135,22 @@
         return null;
       }
 
+      // Extract custom identifiers based on configured attributes.
+      // Only extract attributes that are explicitly configured in identifierConfig.
+      if (node.getAttribute && maestro.identifierConfig && Object.keys(maestro.identifierConfig).length > 0) {
+        for (const htmlAttr in maestro.identifierConfig) {
+          const value = node.getAttribute(htmlAttr)
+          if (value !== null) {
+            attributes[htmlAttr] = value
+
+            const yamlKey = maestro.identifierConfig[htmlAttr]
+            if (yamlKey) {
+              attributes[yamlKey] = value
+            }
+          }
+        }
+      }
+
       if (!!node.attributes['flt-semantics-identifier'] || !!node.id || !!node.ariaLabel || !!node.name || !!node.title || !!node.htmlFor || !!node.attributes['data-testid']) {
         // Prefer flt-semantics-identifier: on Flutter web node.id is an
         // unstable internal handle, not the developer-set identifier.
@@ -165,6 +181,9 @@
     maestro.viewportY = 0;
     maestro.viewportWidth = 0;
     maestro.viewportHeight = 0;
+    
+    // Identifier configuration (set by driver, do NOT set default here)
+    // maestro.identifierConfig will be injected by WebDriver/CdpWebDriver
 
     maestro.getContentDescription = () => {
         return traverse(document.body)
