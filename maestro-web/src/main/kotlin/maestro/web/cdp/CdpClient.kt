@@ -195,6 +195,57 @@ class CdpClient(
             }
         """.trimIndent()
 
+        sendAndCheck(target, payload, messageId)
+    }
+
+    /**
+     * Dispatches a mouse wheel event using CDP Input.dispatchMouseEvent.
+     * This creates trusted events that are indistinguishable from real user input.
+     */
+    suspend fun dispatchMouseWheel(target: CdpTarget, x: Int, y: Int, deltaX: Int, deltaY: Int) {
+        val messageId = idCounter.getAndIncrement()
+        val payload = """
+            {
+                "id": $messageId,
+                "method": "Input.dispatchMouseEvent",
+                "params": {
+                    "type": "mouseWheel",
+                    "x": $x,
+                    "y": $y,
+                    "deltaX": $deltaX,
+                    "deltaY": $deltaY
+                }
+            }
+        """.trimIndent()
+
+        sendAndCheck(target, payload, messageId)
+    }
+
+    /**
+     * Synthesizes a scroll gesture using CDP Input.synthesizeScrollGesture.
+     * This simulates a realistic scroll gesture with momentum.
+     */
+    suspend fun synthesizeScrollGesture(target: CdpTarget, x: Int, y: Int, yDistance: Int, speed: Int = 800) {
+        val messageId = idCounter.getAndIncrement()
+        val payload = """
+            {
+                "id": $messageId,
+                "method": "Input.synthesizeScrollGesture",
+                "params": {
+                    "x": $x,
+                    "y": $y,
+                    "yDistance": $yDistance,
+                    "speed": $speed,
+                    "repeatCount": 1,
+                    "repeatDelayMs": 0
+                }
+            }
+        """.trimIndent()
+
+        sendAndCheck(target, payload, messageId)
+    }
+
+    private suspend fun sendAndCheck(target: CdpTarget, payload: String, messageId: Int) {
         evalMutex.withLock {
             httpClient.webSocketSession { url(target.webSocketDebuggerUrl ?: error("Target ${target.id} has no WebSocket debugger URL")) }
                 .use { session ->

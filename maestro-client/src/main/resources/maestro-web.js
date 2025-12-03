@@ -23,7 +23,12 @@
 
             default:
                 const childNodes = [...(node.childNodes || [])].filter(node => node.nodeType === Node.TEXT_NODE)
-                return childNodes.map(node => node.textContent.replace('\n', '').replace('\t', '')).join('')
+                const textContent = childNodes.map(node => node.textContent.replace('\n', '').replace('\t', '')).join('')
+                if (textContent) return textContent
+                // Flutter semantic nodes often expose their label only via aria-label.
+                const ariaLabel = node.getAttribute?.('aria-label')
+                if (typeof ariaLabel === 'string' && ariaLabel !== '') return ariaLabel
+                return textContent
         }
     }
 
@@ -121,8 +126,14 @@
           return null;
       }
 
+      // Flutter web keeps semantics in open shadow roots, which children does not include.
+      let childNodes = [...(node.children || [])];
+      if (node.shadowRoot) {
+          childNodes = childNodes.concat([...node.shadowRoot.children]);
+      }
+
       const children = includeChildren
-        ? [...node.children || []].map(child => traverse(child, true, iframeOffsetX, iframeOffsetY)).filter(el => !!el)
+        ? childNodes.map(child => traverse(child, true, iframeOffsetX, iframeOffsetY)).filter(el => !!el)
         : []
 
       const attributes = {
@@ -186,7 +197,23 @@
     // maestro.identifierConfig will be injected by WebDriver/CdpWebDriver
 
     maestro.getContentDescription = () => {
-        return traverse(document.body)
+        const bodyResult = traverse(document.body);
+
+        const appendShadowChildren = (host) => {
+            if (!host || !host.shadowRoot || !bodyResult) return;
+            const extra = [...host.shadowRoot.children]
+                .map(child => traverse(child))
+                .filter(el => !!el);
+            if (extra.length > 0) {
+                bodyResult.children = bodyResult.children.concat(extra);
+            }
+        };
+
+        // Flutter hosts can sit outside the body walk and still hold the semantic tree.
+        appendShadowChildren(document.querySelector('flutter-view'));
+        appendShadowChildren(document.querySelector('flt-glass-pane'));
+
+        return bodyResult;
     }
 
     // Replacer for JSON.stringify of the snapshot. A live DOM node can leak in and, on some frameworks,
@@ -372,7 +399,121 @@
         });
     };
 
-    maestro.smoothScrollFlutter = (direction, durationMs = 500) => {
+    maestro.getScrollTargetAt = (x, y) => {
+        const elementAtPoint = document.elementFromPoint(x, y);
+        if (elementAtPoint) {
+            return elementAtPoint;
+        }
+
+        return document.querySelector('flutter-view') ||
+            document.querySelector('flt-glass-pane') ||
+            document.body;
+    }
+
+    maestro.smoothScrollFlutterAtPoint = (pixels, duration = 500, x = null, y = null) => {
+        const scrollX = x !== null ? x : window.innerWidth / 2;
+        const scrollY = y !== null ? y : window.innerHeight / 2;
+        const target = maestro.getScrollTargetAt(scrollX, scrollY);
+        if (!target) {
+            return false;
+        }
+
+        const start = performance.now();
+        let last = 0;
+
+        function animate(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = progress < 0.5
+                ? 4 * progress * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            const delta = eased * pixels - last;
+            last = eased * pixels;
+
+            if (Math.abs(delta) > 0.01) {
+                target.dispatchEvent(new MouseEvent('mouseover', {
+                    clientX: scrollX,
+                    clientY: scrollY,
+                    bubbles: true
+                }));
+                target.dispatchEvent(new MouseEvent('mousemove', {
+                    clientX: scrollX,
+                    clientY: scrollY,
+                    bubbles: true
+                }));
+                target.dispatchEvent(new WheelEvent('wheel', {
+                    deltaY: delta,
+                    deltaX: 0,
+                    deltaZ: 0,
+                    deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+                    clientX: scrollX,
+                    clientY: scrollY,
+                    screenX: scrollX,
+                    screenY: scrollY,
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    detail: 0
+                }));
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        }
+
+        requestAnimationFrame(animate);
+        return true;
+    };
+
+    maestro.directScrollFlutter = (deltaY, x, y) => {
+        const target = maestro.getScrollTargetAt(x, y);
+        if (!target) {
+            return false;
+        }
+
+        const flutterView = document.querySelector('flutter-view');
+        const glassPane = document.querySelector('flt-glass-pane');
+        const canvas = document.querySelector('canvas');
+        const targets = [target, flutterView, glassPane, canvas].filter(Boolean);
+
+        targets.forEach((t) => {
+            t.dispatchEvent(new PointerEvent('pointerdown', {
+                clientX: x,
+                clientY: y,
+                pointerId: 1,
+                pointerType: 'mouse',
+                bubbles: true
+            }));
+            t.dispatchEvent(new WheelEvent('wheel', {
+                deltaY: deltaY,
+                deltaX: 0,
+                deltaMode: 0,
+                clientX: x,
+                clientY: y,
+                bubbles: true,
+                cancelable: true
+            }));
+            t.dispatchEvent(new PointerEvent('pointerup', {
+                clientX: x,
+                clientY: y,
+                pointerId: 1,
+                pointerType: 'mouse',
+                bubbles: true
+            }));
+        });
+
+        return true;
+    };
+
+    // Direction string keeps the upstream API. Numeric pixels scroll at x,y for scrollUntilVisible.
+    maestro.smoothScrollFlutter = (pixelsOrDirection, duration = 500, x = null, y = null) => {
+        if (typeof pixelsOrDirection === 'string') {
+            return maestro.smoothScrollFlutterByDirection(pixelsOrDirection, duration);
+        }
+        return maestro.smoothScrollFlutterAtPoint(pixelsOrDirection, duration, x, y);
+    };
+
+    maestro.smoothScrollFlutterByDirection = (direction, durationMs = 500) => {
         // Direction-based scrolling - converts direction to deltas and delegates to smoothScrollFlutterByDelta
         const normalizedDirection = (direction || 'UP').toString().toUpperCase();
         const isVertical = normalizedDirection === 'UP' || normalizedDirection === 'DOWN';

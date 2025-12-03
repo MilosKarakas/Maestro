@@ -124,6 +124,7 @@ data class ScrollUntilVisibleCommand(
     val waitToSettleTimeoutMs: Int? = null,
     val centerElement: Boolean,
     val originalSpeedValue: String? = scrollDuration,
+    val scrollPoint: String? = null, // Format: "x%,y%" e.g. "10%,50%" to scroll at left side
     override val label: String? = null,
     override val optional: Boolean = false,
 ) : Command {
@@ -139,6 +140,9 @@ data class ScrollUntilVisibleCommand(
             additionalDescription.add("timeout $timeout ms")
             waitToSettleTimeoutMs?.let {
                 additionalDescription.add("wait to settle $it ms")
+            }
+            scrollPoint?.let {
+                additionalDescription.add("at point $it")
             }
             if (centerElement) {
                 additionalDescription.add("with centering enabled")

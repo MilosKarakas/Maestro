@@ -1039,7 +1039,8 @@ data class YamlFluentCommand(
                 label = yaml.label,
                 optional = yaml.optional,
                 originalSpeedValue = yaml.speed,
-                waitToSettleTimeoutMs = yaml.waitToSettleTimeoutMs
+                waitToSettleTimeoutMs = yaml.waitToSettleTimeoutMs,
+                scrollPoint = yaml.scrollPoint
             )
         )
     }

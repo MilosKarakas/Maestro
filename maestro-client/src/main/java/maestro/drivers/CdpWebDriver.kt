@@ -517,6 +517,16 @@ class CdpWebDriver(
         }
     }
 
+    private fun calculateScrollPixels(durationMs: Long): Int {
+        return when {
+            durationMs < 100 -> 3000
+            durationMs < 300 -> 2000
+            durationMs < 600 -> 1000
+            durationMs < 900 -> 400
+            else -> 200
+        }
+    }
+
     override fun scrollVertical() {
         // Check if this is a Flutter web app
         val isFlutter = executeJS("window.maestro.isFlutterApp()") as? Boolean ?: false
@@ -561,11 +571,49 @@ class CdpWebDriver(
     }
 
     override fun swipe(swipeDirection: SwipeDirection, durationMs: Long) {
+        // Get window center as default scroll position
+        val centerX = (executeJS("window.innerWidth") as Int) / 2
+        val centerY = (executeJS("window.innerHeight") as Int) / 2
+        swipeAtPoint(Point(centerX, centerY), swipeDirection, durationMs)
+    }
+
+    override fun swipe(elementPoint: Point, direction: SwipeDirection, durationMs: Long) {
+        swipeAtPoint(elementPoint, direction, durationMs)
+    }
+
+    private fun swipeAtPoint(point: Point, swipeDirection: SwipeDirection, durationMs: Long) {
         val isFlutter = executeJS("window.maestro.isFlutterApp()") as? Boolean ?: false
         
         if (isFlutter) {
-            // Flutter web: Use smooth animated scrolling with easing
-            executeJS("window.maestro.smoothScrollFlutter('${swipeDirection.name}', $durationMs)")
+            // Flutter web: CDP scroll gesture at the given point, with a JS fallback.
+            val scrollPixels = calculateScrollPixels(durationMs)
+            val deltaY = when (swipeDirection) {
+                SwipeDirection.UP -> scrollPixels
+                SwipeDirection.DOWN -> -scrollPixels
+                else -> 0
+            }
+
+            when (swipeDirection) {
+                SwipeDirection.UP, SwipeDirection.DOWN -> {
+                    runBlocking {
+                        try {
+                            val target = currentTarget()
+                            cdpClient.synthesizeScrollGesture(
+                                target,
+                                x = point.x,
+                                y = point.y,
+                                yDistance = -deltaY,
+                                speed = 800
+                            )
+                        } catch (e: Exception) {
+                            executeJS("window.maestro.smoothScrollFlutter($deltaY, 500, ${point.x}, ${point.y})")
+                        }
+                    }
+                    sleep(700L)
+                }
+                SwipeDirection.LEFT -> scroll("window.scrollY", "window.scrollX + Math.round(window.innerWidth / 2)")
+                SwipeDirection.RIGHT -> scroll("window.scrollY", "window.scrollX - Math.round(window.innerWidth / 2)")
+            }
         } else {
             // HTML web: Use standard window scrolling
             when (swipeDirection) {
@@ -575,11 +623,6 @@ class CdpWebDriver(
                 SwipeDirection.RIGHT -> scroll("window.scrollY", "window.scrollX - Math.round(window.innerWidth / 2)")
             }
         }
-    }
-
-    override fun swipe(elementPoint: Point, direction: SwipeDirection, durationMs: Long) {
-        // Ignoring elementPoint to enable a rudimentary implementation of scrollUntilVisible for web
-        swipe(direction, durationMs)
     }
 
     override fun backPress() {

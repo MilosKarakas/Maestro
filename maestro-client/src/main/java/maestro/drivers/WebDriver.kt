@@ -436,6 +436,26 @@ class WebDriver(
         }
     }
 
+    private fun calculateScrollPixels(durationMs: Long): Int {
+        return when {
+            durationMs < 100 -> 3000
+            durationMs < 300 -> 2000
+            durationMs < 600 -> 1000
+            durationMs < 900 -> 400
+            else -> 200
+        }
+    }
+
+    private fun calculateAnimationDuration(durationMs: Long): Int {
+        return when {
+            durationMs < 100 -> 300
+            durationMs < 300 -> 400
+            durationMs < 600 -> 500
+            durationMs < 900 -> 600
+            else -> 700
+        }
+    }
+
     override fun scrollVertical() {
         // Check if this is a Flutter web app
         val isFlutter = executeJS("return window.maestro.isFlutterApp()") as? Boolean ?: false
@@ -497,15 +517,35 @@ class WebDriver(
     }
 
     override fun swipe(swipeDirection: SwipeDirection, durationMs: Long) {
+        // Get window center as default scroll position
+        val centerX = (executeJS("return window.innerWidth") as Long) / 2
+        val centerY = (executeJS("return window.innerHeight") as Long) / 2
+        swipeAtPoint(Point(centerX.toInt(), centerY.toInt()), swipeDirection, durationMs)
+    }
+
+    override fun swipe(elementPoint: Point, direction: SwipeDirection, durationMs: Long) {
+        swipeAtPoint(elementPoint, direction, durationMs)
+    }
+
+    private fun swipeAtPoint(point: Point, swipeDirection: SwipeDirection, durationMs: Long) {
         val isFlutter = executeJS("return window.maestro.isFlutterApp()") as? Boolean ?: false
         
         if (isFlutter) {
-            // Flutter web: Use smooth animated scrolling with easing
-            val waitMs = (durationMs + 1000).coerceAtLeast(1000L)
-            executeAsyncJS(
-                "window.maestro.smoothScrollFlutter('${swipeDirection.name}', $durationMs)",
-                waitMs
-            )
+            // Flutter web: scroll at the given point so sidebars and nested lists move.
+            val scrollPixels = calculateScrollPixels(durationMs)
+            val animationDuration = calculateAnimationDuration(durationMs)
+            when (swipeDirection) {
+                SwipeDirection.UP -> {
+                    executeJS("window.maestro.smoothScrollFlutter($scrollPixels, $animationDuration, ${point.x}, ${point.y})")
+                    sleep(animationDuration.toLong() + 200)
+                }
+                SwipeDirection.DOWN -> {
+                    executeJS("window.maestro.smoothScrollFlutter(-$scrollPixels, $animationDuration, ${point.x}, ${point.y})")
+                    sleep(animationDuration.toLong() + 200)
+                }
+                SwipeDirection.LEFT -> scroll("window.scrollY", "window.scrollX + Math.round(window.innerWidth / 2)")
+                SwipeDirection.RIGHT -> scroll("window.scrollY", "window.scrollX - Math.round(window.innerWidth / 2)")
+            }
         } else {
             // HTML web: Use standard window scrolling
             when (swipeDirection) {
@@ -515,11 +555,6 @@ class WebDriver(
                 SwipeDirection.RIGHT -> scroll("window.scrollY", "window.scrollX - Math.round(window.innerWidth / 2)")
             }
         }
-    }
-
-    override fun swipe(elementPoint: Point, direction: SwipeDirection, durationMs: Long) {
-        // Ignoring elementPoint to enable a rudimentary implementation of scrollUntilVisible for web
-        swipe(direction, durationMs)
     }
 
     override fun backPress() {
