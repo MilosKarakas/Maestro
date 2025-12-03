@@ -43,6 +43,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+kotlin {
+    jvmToolchain(17)
+}
+
 tasks.named("compileKotlin", KotlinCompilationTask) {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjdk-release=17")
