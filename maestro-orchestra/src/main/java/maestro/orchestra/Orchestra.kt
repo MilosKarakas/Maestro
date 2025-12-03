@@ -618,11 +618,13 @@ class Orchestra(
 
         var retryCenterCount = 0
         val maxRetryCenterCount = 4 // for when the list is no longer scrollable (last element) but the element is visible
+        var lastKnownElementBounds: UiElement? = null // Track element position for smarter scrolling
 
         do {
             try {
                 val element = findElement(command.selector, command.optional, 500).element
                 val visibility = element.getVisiblePercentage(deviceInfo.widthGrid, deviceInfo.heightGrid)
+                lastKnownElementBounds = element // Remember the element's position
 
                 logger.info("Scrolling try count: $retryCenterCount, DeviceWidth: ${deviceInfo.widthGrid}, DeviceWidth: ${deviceInfo.heightGrid}")
                 logger.info("Element bounds: ${element.bounds}")
@@ -641,11 +643,33 @@ class Orchestra(
             } catch (ignored: MaestroException.ElementNotFound) {
                 logger.warn("Error: $ignored")
             }
-            maestro.swipeFromCenter(
-                direction,
-                durationMs = command.scrollDuration.toLong(),
-                waitToSettleTimeoutMs = command.waitToSettleTimeoutMs
-            )
+            
+            // Determine where to scroll:
+            // 1. If scrollPoint is specified, use that
+            // 2. Else if element is found (even off-screen), use element's position
+            // 3. Else fall back to screen center
+            val scrollPoint = command.scrollPoint
+            if (scrollPoint != null) {
+                maestro.swipeAtPoint(
+                    direction,
+                    scrollPoint as String,
+                    durationMs = command.scrollDuration.toLong(),
+                    waitToSettleTimeoutMs = command.waitToSettleTimeoutMs
+                )
+            } else if (lastKnownElementBounds != null) {
+                maestro.swipe(
+                    direction,
+                    lastKnownElementBounds,
+                    durationMs = command.scrollDuration.toLong(),
+                    waitToSettleTimeoutMs = command.waitToSettleTimeoutMs
+                )
+            } else {
+                maestro.swipeFromCenter(
+                    direction,
+                    durationMs = command.scrollDuration.toLong(),
+                    waitToSettleTimeoutMs = command.waitToSettleTimeoutMs
+                )
+            }
         } while (System.currentTimeMillis() < endTime)
 
         val debugMessage = buildString {

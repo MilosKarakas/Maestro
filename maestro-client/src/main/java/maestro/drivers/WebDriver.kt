@@ -404,8 +404,10 @@ class WebDriver(
         val isFlutter = executeJS("return window.maestro.isFlutterApp()") as? Boolean ?: false
         
         if (isFlutter) {
-            // Use Flutter-specific smooth animated scrolling
-            executeJS("window.maestro.smoothScrollFlutter(500, 500)")
+            // Use Flutter-specific smooth animated scrolling at window center
+            val centerX = (executeJS("return window.innerWidth") as Long) / 2
+            val centerY = (executeJS("return window.innerHeight") as Long) / 2
+            executeJS("window.maestro.smoothScrollFlutter(500, 500, $centerX, $centerY)")
             sleep(700L) // Wait for animation + Flutter DOM update
         } else {
             // Use standard scroll for regular web pages
@@ -444,19 +446,30 @@ class WebDriver(
     }
 
     override fun swipe(swipeDirection: SwipeDirection, durationMs: Long) {
+        // Get window center as default scroll position
+        val centerX = (executeJS("return window.innerWidth") as Long) / 2
+        val centerY = (executeJS("return window.innerHeight") as Long) / 2
+        swipeAtPoint(Point(centerX.toInt(), centerY.toInt()), swipeDirection, durationMs)
+    }
+
+    override fun swipe(elementPoint: Point, direction: SwipeDirection, durationMs: Long) {
+        swipeAtPoint(elementPoint, direction, durationMs)
+    }
+
+    private fun swipeAtPoint(point: Point, swipeDirection: SwipeDirection, durationMs: Long) {
         val isFlutter = executeJS("return window.maestro.isFlutterApp()") as? Boolean ?: false
         
         if (isFlutter) {
-            // Flutter web: Use smooth animated scrolling with easing
+            // Flutter web: Use smooth animated scrolling with easing at the specified point
             val scrollPixels = calculateScrollPixels(durationMs)
             val animationDuration = calculateAnimationDuration(durationMs)
             when (swipeDirection) {
                 SwipeDirection.UP -> {
-                    executeJS("window.maestro.smoothScrollFlutter($scrollPixels, $animationDuration)")
+                    executeJS("window.maestro.smoothScrollFlutter($scrollPixels, $animationDuration, ${point.x}, ${point.y})")
                     sleep(animationDuration.toLong() + 200) // Wait for animation + Flutter DOM update
                 }
                 SwipeDirection.DOWN -> {
-                    executeJS("window.maestro.smoothScrollFlutter(-$scrollPixels, $animationDuration)")
+                    executeJS("window.maestro.smoothScrollFlutter(-$scrollPixels, $animationDuration, ${point.x}, ${point.y})")
                     sleep(animationDuration.toLong() + 200) // Wait for animation + Flutter DOM update
                 }
                 SwipeDirection.LEFT -> scroll("window.scrollY", "window.scrollX + Math.round(window.innerWidth / 2)")
@@ -471,11 +484,6 @@ class WebDriver(
                 SwipeDirection.RIGHT -> scroll("window.scrollY", "window.scrollX - Math.round(window.innerWidth / 2)")
             }
         }
-    }
-
-    override fun swipe(elementPoint: Point, direction: SwipeDirection, durationMs: Long) {
-        // Ignoring elementPoint to enable a rudimentary implementation of scrollUntilVisible for web
-        swipe(direction, durationMs)
     }
 
     override fun backPress() {

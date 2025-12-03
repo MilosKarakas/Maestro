@@ -163,6 +163,44 @@ class Maestro(
         waitForAppToSettle(waitToSettleTimeoutMs = waitToSettleTimeoutMs)
     }
 
+    /**
+     * Swipe at a specific point given as percentage string "x%,y%".
+     * For example, "10%,50%" will swipe at 10% from left and 50% from top.
+     */
+    fun swipeAtPoint(swipeDirection: SwipeDirection, pointStr: String, durationMs: Long, waitToSettleTimeoutMs: Int?) {
+        val deviceInfo = deviceInfo()
+        val point = parsePercentagePoint(pointStr, deviceInfo.widthGrid, deviceInfo.heightGrid)
+
+        LOGGER.info("Swiping ${swipeDirection.name} at point $pointStr (resolved to $point)")
+        driver.swipe(point, swipeDirection, durationMs)
+        waitForAppToSettle(waitToSettleTimeoutMs = waitToSettleTimeoutMs)
+    }
+
+    /**
+     * Parse a percentage point string like "10%,50%" into absolute coordinates.
+     */
+    private fun parsePercentagePoint(pointStr: String, width: Int, height: Int): Point {
+        val parts = pointStr.split(",").map { it.trim() }
+        require(parts.size == 2) { "Point must be in format 'x%,y%' or 'x,y', got: $pointStr" }
+
+        val xStr = parts[0]
+        val yStr = parts[1]
+
+        val x = if (xStr.endsWith("%")) {
+            (xStr.dropLast(1).toDouble() / 100 * width).toInt()
+        } else {
+            xStr.toInt()
+        }
+
+        val y = if (yStr.endsWith("%")) {
+            (yStr.dropLast(1).toDouble() / 100 * height).toInt()
+        } else {
+            yStr.toInt()
+        }
+
+        return Point(x, y)
+    }
+
     fun scrollVertical() {
         LOGGER.info("Scrolling vertically")
 

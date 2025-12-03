@@ -174,6 +174,61 @@ class CdpClient(
             }
     }
 
+    /**
+     * Dispatches a mouse wheel event using CDP Input.dispatchMouseEvent.
+     * This creates "trusted" events that are indistinguishable from real user input.
+     */
+    suspend fun dispatchMouseWheel(target: CdpTarget, x: Int, y: Int, deltaX: Int, deltaY: Int) {
+        val messageId = idCounter.getAndIncrement()
+        val payload = """
+            {
+                "id": $messageId,
+                "method": "Input.dispatchMouseEvent",
+                "params": {
+                    "type": "mouseWheel",
+                    "x": $x,
+                    "y": $y,
+                    "deltaX": $deltaX,
+                    "deltaY": $deltaY
+                }
+            }
+        """.trimIndent()
+
+        httpClient.webSocketSession { url(target.webSocketDebuggerUrl) }
+            .use { session ->
+                session.send(Frame.Text(payload))
+                session.waitForMessage(messageId)
+            }
+    }
+
+    /**
+     * Synthesizes a scroll gesture using CDP Input.synthesizeScrollGesture.
+     * This simulates a realistic scroll gesture with momentum.
+     */
+    suspend fun synthesizeScrollGesture(target: CdpTarget, x: Int, y: Int, yDistance: Int, speed: Int = 800) {
+        val messageId = idCounter.getAndIncrement()
+        val payload = """
+            {
+                "id": $messageId,
+                "method": "Input.synthesizeScrollGesture",
+                "params": {
+                    "x": $x,
+                    "y": $y,
+                    "yDistance": $yDistance,
+                    "speed": $speed,
+                    "repeatCount": 1,
+                    "repeatDelayMs": 0
+                }
+            }
+        """.trimIndent()
+
+        httpClient.webSocketSession { url(target.webSocketDebuggerUrl) }
+            .use { session ->
+                session.send(Frame.Text(payload))
+                session.waitForMessage(messageId)
+            }
+    }
+
     private suspend fun DefaultClientWebSocketSession.waitForMessage(messageId: Int): String {
         for (frame in incoming) {
             if (frame is Frame.Text) {
