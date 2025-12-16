@@ -23,4 +23,5 @@ data class YamlActionPasteText(
 data class YamlActionScroll(
     val label: String? = null,
     val optional: Boolean = false,
+    val scrollPoint: String? = null, // Format: "x%,y%" e.g. "50%,50%" to scroll at center, or element text to scroll within that element
 )

@@ -341,7 +341,7 @@ class Orchestra(
             is TapOnPointV2Command -> tapOnPointV2Command(command)
             is BackPressCommand -> backPressCommand()
             is HideKeyboardCommand -> hideKeyboardCommand()
-            is ScrollCommand -> scrollVerticalCommand()
+            is ScrollCommand -> scrollVerticalCommand(command)
             is CopyTextFromCommand -> copyTextFromCommand(command)
             is SetClipboardCommand -> setClipboardCommand(command)
             is ScrollUntilVisibleCommand -> scrollUntilVisible(command)
@@ -606,8 +606,32 @@ class Orchestra(
         return true
     }
 
-    private fun scrollVerticalCommand(): Boolean {
-        maestro.scrollVertical()
+    private fun scrollVerticalCommand(command: ScrollCommand): Boolean {
+        val scrollPoint = command.scrollPoint
+        if (scrollPoint != null) {
+            // Check if scrollPoint is a percentage format (e.g., "50%,50%") or an element selector
+            if (scrollPoint.contains(",") && (scrollPoint.contains("%") || scrollPoint.all { it.isDigit() || it == ',' || it == '%' })) {
+                // Percentage format - scroll at that point
+                maestro.swipeAtPoint(
+                    SwipeDirection.UP,
+                    scrollPoint,
+                    durationMs = 400,
+                    waitToSettleTimeoutMs = null
+                )
+            } else {
+                // Element selector format - find the element and scroll within its bounds
+                val selector = ElementSelector(textRegex = scrollPoint)
+                val element = findElement(selector, optional = false, timeout = 2000).element
+                maestro.swipe(
+                    SwipeDirection.UP,
+                    element,
+                    durationMs = 400,
+                    waitToSettleTimeoutMs = null
+                )
+            }
+        } else {
+            maestro.scrollVertical()
+        }
         return true
     }
 
