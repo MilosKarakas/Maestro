@@ -24,4 +24,5 @@ data class YamlActionScroll(
     val label: String? = null,
     val optional: Boolean = false,
     val scrollPoint: String? = null, // Format: "x%,y%" e.g. "50%,50%" to scroll at center, or element text to scroll within that element
+    val speed: Int = 40, // 0-100, higher = faster/longer scroll. 40 is default
 )

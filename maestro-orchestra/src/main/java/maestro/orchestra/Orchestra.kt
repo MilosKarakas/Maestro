@@ -810,13 +810,15 @@ class Orchestra(
 
     private suspend fun scrollVerticalCommand(command: ScrollCommand): Boolean {
         val scrollPoint = command.scrollPoint
+        val durationMs = command.scrollDuration
+
         if (scrollPoint != null) {
             // Percentage coordinates scroll at that point. Any other value is element text.
             if (scrollPoint.contains(",") && (scrollPoint.contains("%") || scrollPoint.all { it.isDigit() || it == ',' || it == '%' })) {
                 maestro.swipeAtPoint(
                     SwipeDirection.UP,
                     scrollPoint,
-                    durationMs = 400,
+                    durationMs = durationMs,
                     waitToSettleTimeoutMs = null
                 )
             } else {
@@ -825,12 +827,21 @@ class Orchestra(
                 maestro.swipe(
                     SwipeDirection.UP,
                     element,
-                    durationMs = 400,
+                    durationMs = durationMs,
                     waitToSettleTimeoutMs = null
                 )
             }
         } else {
-            maestro.scrollVertical()
+            // Default scroll - use speed if different from default, otherwise use standard scrollVertical
+            if (command.speed != ScrollCommand.DEFAULT_SPEED) {
+                maestro.swipeFromCenter(
+                    SwipeDirection.UP,
+                    durationMs = durationMs,
+                    waitToSettleTimeoutMs = null
+                )
+            } else {
+                maestro.scrollVertical()
+            }
         }
         return true
     }
