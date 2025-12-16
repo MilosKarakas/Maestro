@@ -45,6 +45,7 @@ import maestro.orchestra.geo.Traveller
 import maestro.orchestra.util.calculateElementRelativePoint
 import maestro.orchestra.util.Env.evaluateScripts
 import maestro.orchestra.yaml.YamlCommandReader
+import maestro.SwipeDirection
 import maestro.toSwipeDirection
 import maestro.utils.Insight
 import maestro.utils.Insights
@@ -623,7 +624,7 @@ class Orchestra(
             } else {
                 // Element selector format - find the element and scroll within its bounds
                 val selector = ElementSelector(textRegex = scrollPoint)
-                val element = findElement(selector, optional = false, timeout = 2000).element
+                val element = findElement(selector, optional = false, timeoutMs = 2000).element
                 maestro.swipe(
                     SwipeDirection.UP,
                     element,
