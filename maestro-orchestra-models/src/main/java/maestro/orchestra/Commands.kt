@@ -169,26 +169,39 @@ data class ScrollUntilVisibleCommand(
 
 data class ScrollCommand(
     val scrollPoint: String? = null, // Format: "x%,y%" e.g. "50%,50%" to scroll at that point, or element text to scroll within that element
+    val speed: Int = DEFAULT_SPEED, // 0-100, higher = faster/longer scroll
     override val label: String? = null,
     override val optional: Boolean = false,
 ) : Command {
 
+    // Convert speed (0-100) to duration in ms. Higher speed = shorter duration = faster scroll
+    val scrollDuration: Long
+        get() = ((1000 * (100 - speed).toDouble() / 100).toLong() + 1).coerceAtLeast(1)
+
     override val originalDescription: String
-        get() = if (scrollPoint != null) "Scroll vertically at $scrollPoint" else "Scroll vertically"
+        get() {
+            val parts = mutableListOf<String>()
+            parts.add("Scroll vertically")
+            if (scrollPoint != null) parts.add("at $scrollPoint")
+            if (speed != DEFAULT_SPEED) parts.add("with speed $speed")
+            return parts.joinToString(" ")
+        }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         other as ScrollCommand
-        return scrollPoint == other.scrollPoint
+        return scrollPoint == other.scrollPoint && speed == other.speed
     }
 
     override fun hashCode(): Int {
-        return scrollPoint?.hashCode() ?: 0
+        var result = scrollPoint?.hashCode() ?: 0
+        result = 31 * result + speed
+        return result
     }
 
     override fun toString(): String {
-        return "ScrollCommand(scrollPoint=$scrollPoint)"
+        return "ScrollCommand(scrollPoint=$scrollPoint, speed=$speed)"
     }
 
     override fun evaluateScripts(jsEngine: JsEngine): ScrollCommand {
@@ -196,6 +209,10 @@ data class ScrollCommand(
             scrollPoint = scrollPoint?.evaluateScripts(jsEngine),
             label = label?.evaluateScripts(jsEngine)
         )
+    }
+
+    companion object {
+        const val DEFAULT_SPEED = 40
     }
 }
 
