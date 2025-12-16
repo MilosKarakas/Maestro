@@ -57,6 +57,7 @@ import maestro.orchestra.geo.Traveller
 import maestro.orchestra.util.calculateElementRelativePoint
 import maestro.orchestra.util.Env.evaluateScripts
 import maestro.orchestra.yaml.YamlCommandReader
+import maestro.SwipeDirection
 import maestro.toSwipeDirection
 import maestro.utils.FileAccessScope
 import maestro.utils.Insight
