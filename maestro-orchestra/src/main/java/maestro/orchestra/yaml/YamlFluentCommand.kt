@@ -296,7 +296,7 @@ data class YamlFluentCommand(
                 )
             )
 
-            scroll != null -> listOf(MaestroCommand(ScrollCommand(label = scroll.label, optional = scroll.optional)))
+            scroll != null -> listOf(MaestroCommand(ScrollCommand(scrollPoint = scroll.scrollPoint, label = scroll.label, optional = scroll.optional)))
             takeScreenshot != null -> listOf(
                 MaestroCommand(
                     TakeScreenshotCommand(

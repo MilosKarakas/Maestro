@@ -168,29 +168,32 @@ data class ScrollUntilVisibleCommand(
 }
 
 data class ScrollCommand(
+    val scrollPoint: String? = null, // Format: "x%,y%" e.g. "50%,50%" to scroll at that point, or element text to scroll within that element
     override val label: String? = null,
     override val optional: Boolean = false,
 ) : Command {
 
     override val originalDescription: String
-        get() = "Scroll vertically"
+        get() = if (scrollPoint != null) "Scroll vertically at $scrollPoint" else "Scroll vertically"
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
-        return true
+        other as ScrollCommand
+        return scrollPoint == other.scrollPoint
     }
 
     override fun hashCode(): Int {
-        return javaClass.hashCode()
+        return scrollPoint?.hashCode() ?: 0
     }
 
     override fun toString(): String {
-        return "ScrollCommand()"
+        return "ScrollCommand(scrollPoint=$scrollPoint)"
     }
 
     override fun evaluateScripts(jsEngine: JsEngine): ScrollCommand {
         return copy(
+            scrollPoint = scrollPoint?.evaluateScripts(jsEngine),
             label = label?.evaluateScripts(jsEngine)
         )
     }
