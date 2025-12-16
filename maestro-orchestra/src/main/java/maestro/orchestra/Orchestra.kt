@@ -683,17 +683,31 @@ class Orchestra(
             }
             
             // Determine where to scroll:
-            // 1. If scrollPoint is specified, use that
+            // 1. If scrollPoint is specified, use that (percentage or element selector)
             // 2. Else if element is found (even off-screen), use element's position
             // 3. Else fall back to screen center
             val scrollPoint = command.scrollPoint
             if (scrollPoint != null) {
-                maestro.swipeAtPoint(
-                    direction,
-                    scrollPoint as String,
-                    durationMs = command.scrollDuration.toLong(),
-                    waitToSettleTimeoutMs = command.waitToSettleTimeoutMs
-                )
+                // Check if scrollPoint is a percentage format (e.g., "50%,50%") or an element selector
+                if (scrollPoint.contains(",") && (scrollPoint.contains("%") || scrollPoint.all { it.isDigit() || it == ',' || it == '%' })) {
+                    // Percentage format - scroll at that point
+                    maestro.swipeAtPoint(
+                        direction,
+                        scrollPoint,
+                        durationMs = command.scrollDuration.toLong(),
+                        waitToSettleTimeoutMs = command.waitToSettleTimeoutMs
+                    )
+                } else {
+                    // Element selector format - find the element and scroll within its bounds
+                    val selector = ElementSelector(textRegex = scrollPoint)
+                    val scrollContainer = findElement(selector, optional = false, timeoutMs = 2000).element
+                    maestro.swipe(
+                        direction,
+                        scrollContainer,
+                        durationMs = command.scrollDuration.toLong(),
+                        waitToSettleTimeoutMs = command.waitToSettleTimeoutMs
+                    )
+                }
             } else if (lastKnownElementBounds != null) {
                 maestro.swipe(
                     direction,
