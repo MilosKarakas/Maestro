@@ -132,9 +132,12 @@
             }
         }
 
-        if (!!node.id || !!node.ariaLabel || !!node.name || !!node.title || !!node.htmlFor || !!node.attributes['data-testid']) {
+        // For Flutter Web: prioritize flt-semantics-identifier (user-defined) over node.id (auto-generated)
+        const fltSemanticsId = node.getAttribute && node.getAttribute('flt-semantics-identifier')
+        
+        if (fltSemanticsId || !!node.id || !!node.ariaLabel || !!node.name || !!node.title || !!node.htmlFor || !!node.attributes['data-testid']) {
             const title = typeof node.title === 'string' ? node.title : null
-            attributes['resource-id'] = node.id || node.ariaLabel || node.name || title || node.htmlFor || node.attributes['data-testid']?.value
+            attributes['resource-id'] = fltSemanticsId || node.id || node.ariaLabel || node.name || title || node.htmlFor || node.attributes['data-testid']?.value
         }
 
         if (node.tagName.toLowerCase() === 'body') {
