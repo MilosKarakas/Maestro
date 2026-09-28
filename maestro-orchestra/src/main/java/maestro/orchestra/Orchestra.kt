@@ -899,7 +899,7 @@ class Orchestra(
                 } else {
                     // Element selector format - find the element and scroll within its bounds
                     val selector = ElementSelector(textRegex = scrollPoint)
-                    val scrollContainer = findElement(selector, optional = false, timeoutMs = 2000).element
+                    val scrollContainer = findElement(selector, optional = false, timeoutMs = 2000L).element
                     maestro.swipe(
                         direction,
                         scrollContainer,
